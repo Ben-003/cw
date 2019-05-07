@@ -1,0 +1,76 @@
+web组：
+1.创建alex61,alex62,alex63用户，分别指定用户的家目录为/opt/alex61，/opt/alex62,/opt/alex63,指定用户的id为3000,3001,3002，指定用户的附加组为root
+- hosts:web
+	tasks:
+	- name:crateuser
+	  user:name={{items.name}} home={{items.home}} id={{items.id}} groups=root 
+	  with_items:
+		- {"name":alex61,"home":/opt/alex61,"id":3000}
+		- {"name":alex62,"home":/opt/alex62,"id":3001}
+		- {"name":alex63,"home":/opt/alex63,"id":3002}
+2.创建wusir10用户组
+- hosts:web
+  tasks:
+  -name:crategroupgroup:name=wusir10
+3.将本地的/etc/fstab 复制到远程，并指定属主是alex10，属组是wusir10
+- hosts:web
+  tasks:
+  - name:copyfile
+    copy:src=/etc/fstab dest=/tmp group=wusir10 owner=alex10
+4.安装nginx并启动，设置开机自启动,指定监听地址为ip地址
+先将/etc/nginx.conf文件更改绑定ip地址为bind {{ansible_default_ipv4.address}}
+- hosts:web
+  tasks:
+  - name:install
+    yum:name=nginx state=started
+  - name:copyfile
+    template:dest=/etc/nginx.conf  src=/etc/nginx.conf
+	tags:copy
+	notify:restart
+  - name:start
+    service:name=nginx state=started
+  handlers:
+  - name: restart
+  service: name=redis state=restarted
+  - name:enable
+    service:name=nginx state=enabled
+启动:ansible-playbook -t copy 文件名
+5.安装django
+- hosts:web
+  tasks:
+  - name:install
+  pip:name=django==1.11
+
+6.设置计划任务每天凌晨2点半备份/etc/目录
+- hosts:web
+  tasks:
+  - name:cron
+  cron:hour=2 minute=30 job='tar zcf /tmp/etc`date +%F`.tar.gz /etc' name=backup
+
+7.将被控节点上的网卡文件拉取到本地的/tmp目录下
+- hosts:web
+  tasks:
+  - name:fetch
+    fetch:path=/etc/sysconfig/network-scripts/ifcfg-ens33 dest=/tmp
+
+8.在被控节点上创建软链接，源文件为/etc/fstab，目标文件为/tmp/f
+- hosts:web
+  tasks:
+  - name:link
+    file:path=/tmp/f src=/etc/fstab state=link
+
+9.安装开发包组
+- hosts:web
+  tasks:
+  - name:install
+    yum:name='@Development Tools'
+
+10.在centos6里面添加“飞流直下三千尺”，centos7里面添加“疑是银河落九天”
+- hosts: web
+  tasks:
+  - name: copyfile
+    copy: content="疑是银河落九天" dest=/tmp/a.txt
+    when: ansible_distribution_major_version=="7"
+  - name: copyfile
+    copy: content="飞流直下三千尺" dest=/tmp/a.txt
+    when: ansible_distribution_major_version=="6"
